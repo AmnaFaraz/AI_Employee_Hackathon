@@ -1,4 +1,3 @@
-
 import time
 import subprocess
 from pathlib import Path
@@ -6,27 +5,39 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 VAULT = Path('/mnt/c/Users/dell/Documents/AI_Employee_Vault')
-DROP = VAULT / 'Drop'
-DROP.mkdir(exist_ok=True)
+INBOX = VAULT / 'Inbox'
+LOG_FILE = VAULT / 'Logs' / 'watcher.log'
 
-class Handler(FileSystemEventHandler):
+def log(msg):
+    timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+    entry = f"[{timestamp}] {msg}\n"
+    with open(LOG_FILE, 'a') as f:
+        f.write(entry)
+    print(entry.strip())
+
+def git_commit(message):
+    subprocess.run(['git', '-C', str(VAULT), 'add', '-A'])
+    subprocess.run(['git', '-C', str(VAULT), 'commit', '-m', message])
+    subprocess.run(['git', '-C', str(VAULT), 'push'])
+
+class InboxHandler(FileSystemEventHandler):
     def on_created(self, event):
-        if event.is_directory:
+        if event.is_directory or event.src_path.endswith('.gitkeep'):
             return
-        print(f"File detected: {Path(event.src_path).name}")
-        time.sleep(2)
-        # Note: Ensure the 'claude' CLI is installed in your venv or path
-        subprocess.run(['claude', '--cwd', str(VAULT), 'Process /Drop file per CLAUDE.md. Update Dashboard. Move to /Done.'])
+        filename = Path(event.src_path).name
+        log(f"NEW FILE DETECTED: {filename}")
+        git_commit(f"inbox: new file {filename}")
 
 if __name__ == '__main__':
-    print(f"Watching: {DROP}")
+    log("=== File Watcher Started - Monitoring Inbox/ ===")
+    handler = InboxHandler()
     observer = Observer()
-    observer.schedule(Handler(), str(DROP), recursive=False)
+    observer.schedule(handler, str(INBOX), recursive=False)
     observer.start()
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
+        log("=== File Watcher Stopped ===")
         observer.stop()
     observer.join()
-
