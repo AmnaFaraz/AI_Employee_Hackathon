@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import time
 import os
+import re
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 VAULT = Path('/mnt/c/Users/dell/Documents/AI_Employee_Vault')
@@ -17,9 +18,16 @@ TOKEN_FILE = VAULT / 'watchers' / 'token.json'
 def log(msg):
     timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
     entry = f"[{timestamp}] {msg}\n"
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(LOG_FILE, 'a') as f:
         f.write(entry)
     print(entry.strip())
+
+def safe_filename(text, maxlen=40):
+    text = text.encode('ascii', 'ignore').decode('ascii')
+    text = re.sub(r'[^\w\s-]', '', text)
+    text = re.sub(r'[\s]+', '-', text).strip('-').lower()
+    return text[:maxlen] if text else 'no-subject'
 
 def git_commit(message):
     subprocess.run(['git', '-C', str(VAULT), 'add', '-A'])
@@ -36,6 +44,7 @@ def get_credentials():
 
 def main():
     log("=== Gmail Watcher Started ===")
+    NEEDS_ACTION.mkdir(parents=True, exist_ok=True)
     creds = get_credentials()
     service = build('gmail', 'v1', credentials=creds)
     processed = set()
@@ -56,7 +65,7 @@ def main():
                 headers = {h['name']: h['value'] for h in msg['payload']['headers']}
                 subject = headers.get('Subject', 'No Subject')
                 sender  = headers.get('From', 'Unknown')
-                slug = subject.lower().replace(' ', '-')[:40]
+                slug = safe_filename(subject)
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
                 content = f"""---
@@ -76,10 +85,11 @@ status: pending
 - [ ] Move to Done when complete
 """
                 filename = f"EMAIL_{timestamp}_{slug}.md"
-                (NEEDS_ACTION / filename).write_text(content)
+                filepath = NEEDS_ACTION / filename
+                filepath.write_text(content, encoding='utf-8')
                 processed.add(msg_meta['id'])
-                log(f"NEW EMAIL: {subject}")
-                git_commit(f"email: new email - {subject[:50]}")
+                log(f"NEW EMAIL SAVED: {filename}")
+                git_commit(f"email: {subject[:50]}")
 
             time.sleep(120)
 

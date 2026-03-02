@@ -19,6 +19,16 @@
               "icon": "lucide-table",
               "title": "Untitled"
             }
+          },
+          {
+            "id": "8cf2c214b0579eb5",
+            "type": "leaf",
+            "state": {
+              "type": "empty",
+              "state": {},
+              "icon": "lucide-file",
+              "title": "New tab"
+            }
           }
         ]
       }
@@ -77,8 +87,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 300
   },
   "right": {
     "id": "978a8ef19742d37b",
