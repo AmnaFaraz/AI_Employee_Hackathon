@@ -5,7 +5,6 @@ from datetime import datetime
 from pathlib import Path
 import subprocess
 import time
-import os
 import re
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
@@ -18,7 +17,6 @@ TOKEN_FILE = VAULT / 'watchers' / 'token.json'
 def log(msg):
     timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
     entry = f"[{timestamp}] {msg}\n"
-    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(LOG_FILE, 'a') as f:
         f.write(entry)
     print(entry.strip())
@@ -34,6 +32,26 @@ def git_commit(message):
     subprocess.run(['git', '-C', str(VAULT), 'commit', '-m', message])
     subprocess.run(['git', '-C', str(VAULT), 'push'])
 
+def invoke_claude(filename, subject):
+    prompt = f"""You are an AI Employee. New email arrived: '{subject}'.
+File saved at Needs_Action/{filename}.
+
+Follow .claude/skills/email-processing.md:
+1. Read the email file
+2. Determine priority: high/normal/low
+3. Check if approval needed per .claude/skills/approval-workflow.md
+4. If sensitive: move to Pending_Approval/
+5. Create PLAN_{filename} in Plans/ with action steps
+6. Update Dashboard.md
+7. Log actions to Logs/vault.log"""
+
+    result = subprocess.run(
+        ['claude', '-p', prompt, '--cwd', str(VAULT)],
+        capture_output=True, text=True, timeout=120
+    )
+    log(f"CLAUDE REASONED: {filename}")
+    return result.stdout
+
 def get_credentials():
     if TOKEN_FILE.exists():
         return Credentials.from_authorized_user_file(str(TOKEN_FILE), SCOPES)
@@ -43,7 +61,7 @@ def get_credentials():
     return creds
 
 def main():
-    log("=== Gmail Watcher Started ===")
+    log("=== Gmail Watcher + Claude Started ===")
     NEEDS_ACTION.mkdir(parents=True, exist_ok=True)
     creds = get_credentials()
     service = build('gmail', 'v1', credentials=creds)
@@ -64,7 +82,7 @@ def main():
                 ).execute()
                 headers = {h['name']: h['value'] for h in msg['payload']['headers']}
                 subject = headers.get('Subject', 'No Subject')
-                sender  = headers.get('From', 'Unknown')
+                sender = headers.get('From', 'Unknown')
                 slug = safe_filename(subject)
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
@@ -85,11 +103,11 @@ status: pending
 - [ ] Move to Done when complete
 """
                 filename = f"EMAIL_{timestamp}_{slug}.md"
-                filepath = NEEDS_ACTION / filename
-                filepath.write_text(content, encoding='utf-8')
+                (NEEDS_ACTION / filename).write_text(content, encoding='utf-8')
                 processed.add(msg_meta['id'])
                 log(f"NEW EMAIL SAVED: {filename}")
-                git_commit(f"email: {subject[:50]}")
+                invoke_claude(filename, subject)
+                git_commit(f"email: claude processed - {subject[:40]}")
 
             time.sleep(120)
 
