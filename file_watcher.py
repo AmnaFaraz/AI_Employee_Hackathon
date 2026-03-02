@@ -1,7 +1,7 @@
 import time
 import subprocess
 from pathlib import Path
-from watchdog.observers import Observer
+from watchdog.observers.polling import PollingObserver
 from watchdog.events import FileSystemEventHandler
 
 VAULT = Path('/mnt/c/Users/dell/Documents/AI_Employee_Vault')
@@ -29,9 +29,9 @@ class InboxHandler(FileSystemEventHandler):
         git_commit(f"inbox: new file {filename}")
 
 if __name__ == '__main__':
-    log("=== File Watcher Started - Monitoring Inbox/ ===")
+    log("=== File Watcher Started (Polling) - Monitoring Inbox/ ===")
     handler = InboxHandler()
-    observer = Observer()
+    observer = PollingObserver(timeout=2)
     observer.schedule(handler, str(INBOX), recursive=False)
     observer.start()
     try:
