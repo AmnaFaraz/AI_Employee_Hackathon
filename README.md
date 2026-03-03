@@ -393,3 +393,8 @@ The system is built around four distinct layers that mirror how a human employee
 **Credential management:** The Google OAuth consent screen requires the test user's email to be explicitly added as an authorised tester before the OAuth flow can complete — this is not documented prominently in Google's quickstart guides.
 
 **Agent Skills design:** Keeping Claude's instructions in `.claude/skills/*.md` files rather than hardcoding prompts means behaviour can be updated without touching any Python code, which makes the system maintainable by non-developers.
+## Tier Declaration
+Gold Tier submission.
+
+## Security Disclosure
+Credentials stored in environment variables and `.env` file (excluded via `.gitignore`). Gmail OAuth tokens never committed. All sensitive actions require human approval before execution.
