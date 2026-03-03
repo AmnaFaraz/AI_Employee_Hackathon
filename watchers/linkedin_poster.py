@@ -1,0 +1,83 @@
+import requests
+import time
+import subprocess
+from pathlib import Path
+
+VAULT = Path('/mnt/c/Users/dell/Documents/AI_employee_vault')
+LOG_FILE = VAULT / 'Logs' / 'linkedin.log'
+
+# Replace with your LinkedIn Access Token from developer portal
+LINKEDIN_ACCESS_TOKEN = "YOUR_LINKEDIN_ACCESS_TOKEN"
+LINKEDIN_PERSON_URN = "YOUR_LINKEDIN_PERSON_URN"
+
+def log(msg):
+    timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+    entry = f"[{timestamp}] {msg}\n"
+    with open(LOG_FILE, 'a') as f:
+        f.write(entry)
+    print(entry.strip())
+
+def git_commit(message):
+    subprocess.run(['git', '-C', str(VAULT), 'add', '-A'])
+    subprocess.run(['git', '-C', str(VAULT), 'commit', '-m', message])
+    subprocess.run(['git', '-C', str(VAULT), 'push'])
+
+def post_to_linkedin(text):
+    url = "https://api.linkedin.com/v2/ugcPosts"
+    headers = {
+        "Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
+        "Content-Type": "application/json",
+        "X-Restli-Protocol-Version": "2.0.0"
+    }
+    payload = {
+        "author": f"urn:li:person:{LINKEDIN_PERSON_URN}",
+        "lifecycleState": "PUBLISHED",
+        "specificContent": {
+            "com.linkedin.ugc.ShareContent": {
+                "shareCommentary": {"text": text},
+                "shareMediaCategory": "NONE"
+            }
+        },
+        "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"}
+    }
+    response = requests.post(url, headers=headers, json=payload)
+    if response.status_code == 201:
+        log(f"LINKEDIN POST SUCCESS: {text[:60]}")
+        return True
+    else:
+        log(f"LINKEDIN POST FAILED: {response.status_code} - {response.text}")
+        return False
+
+def watch_approved_for_linkedin():
+    log("=== LinkedIn Poster Started ===")
+    approved = VAULT / 'Approved'
+    done = VAULT / 'Done'
+    processed = set()
+
+    while True:
+        try:
+            for filepath in approved.iterdir():
+                if filepath.name in processed or filepath.name == '.gitkeep':
+                    continue
+                content = filepath.read_text(encoding='utf-8')
+                if 'type: linkedin' in content.lower() or 'post_linkedin: true' in content.lower():
+                    lines = content.splitlines()
+                    post_text = ""
+                    for line in lines:
+                        if line.startswith("## Post Content"):
+                            idx = lines.index(line)
+                            post_text = "\n".join(lines[idx+1:idx+10]).strip()
+                            break
+                    if post_text:
+                        success = post_to_linkedin(post_text)
+                        if success:
+                            filepath.rename(done / filepath.name)
+                            git_commit(f"linkedin: posted and archived {filepath.name}")
+                processed.add(filepath.name)
+            time.sleep(30)
+        except Exception as e:
+            log(f"ERROR: {e}")
+            time.sleep(30)
+
+if __name__ == '__main__':
+    watch_approved_for_linkedin()
