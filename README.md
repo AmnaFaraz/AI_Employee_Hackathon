@@ -341,7 +341,7 @@ Configured to run `start_all_watchers.sh` on system startup via Windows Task Sch
 | `Logs/ceo_briefing.log` | Briefing generation events |
 | `Logs/error_recovery.log` | Process restart events |
 | `Logs/ralph.log` | Autonomous loop decisions |
-| `Logs/startup.log` | System startup events |
+| `Logs/dashboard.log` | Dashboard update events |
 
 ---
 
