@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/mnt/c/Users/dell/Documents/AI_employee_vault/watchers/twitter_poster.py", line 1, in <module>
+    import tweepy
+ModuleNotFoundError: No module named 'tweepy'
