@@ -5,3 +5,4 @@ venv/
 watchers/token.json
 .claude/
 .env
+customer-success-fte/.env
